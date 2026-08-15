@@ -231,3 +231,32 @@ resource "aws_lb_listener" "http" {
     target_group_arn = aws_lb_target_group.app.arn
   }
 }
+
+
+resource "aws_eip" "nat" {
+  domain = "vpc"
+
+  tags = {
+    Name        = "aws-cloud-portfolio-nat-eip"
+    Environment = "dev"
+  }
+}
+
+resource "aws_nat_gateway" "main" {
+  allocation_id = aws_eip.nat.id
+  subnet_id     = aws_subnet.public_1.id
+
+  depends_on = [aws_internet_gateway.main]
+
+  tags = {
+    Name        = "aws-cloud-portfolio-nat"
+    Environment = "dev"
+  }
+}
+
+resource "aws_route" "private_nat" {
+  route_table_id         = aws_route_table.private.id
+  destination_cidr_block = "0.0.0.0/0"
+  nat_gateway_id         = aws_nat_gateway.main.id
+}
+
