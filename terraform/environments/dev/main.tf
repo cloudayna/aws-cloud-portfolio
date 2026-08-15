@@ -317,6 +317,40 @@ resource "aws_launch_template" "app" {
 }
 
 
+resource "aws_autoscaling_group" "app" {
+  name = "aws-cloud-portfolio-asg"
 
+  min_size         = 2
+  max_size         = 4
+  desired_capacity = 2
+
+  vpc_zone_identifier = [
+    aws_subnet.private_1.id,
+    aws_subnet.private_2.id
+  ]
+
+  target_group_arns = [
+    aws_lb_target_group.app.arn
+  ]
+
+  health_check_type = "ELB"
+
+  launch_template {
+    id      = aws_launch_template.app.id
+    version = "$Latest"
+  }
+
+  tag {
+    key                 = "Name"
+    value               = "aws-cloud-portfolio-app"
+    propagate_at_launch = true
+  }
+
+  tag {
+    key                 = "Environment"
+    value               = "dev"
+    propagate_at_launch = true
+  }
+}
 
 
