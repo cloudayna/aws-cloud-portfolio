@@ -260,3 +260,63 @@ resource "aws_route" "private_nat" {
   nat_gateway_id         = aws_nat_gateway.main.id
 }
 
+data "aws_ami" "amazon_linux" {
+  most_recent = true
+  owners      = ["amazon"]
+
+  filter {
+    name   = "name"
+    values = ["al2023-ami-2023.*-x86_64"]
+  }
+
+  filter {
+    name   = "virtualization-type"
+    values = ["hvm"]
+  }
+}
+
+
+resource "aws_launch_template" "app" {
+  name_prefix   = "aws-cloud-portfolio-"
+  image_id      = data.aws_ami.amazon_linux.id
+  instance_type = "t3.micro"
+  user_data = base64encode(<<-EOF
+    #!/bin/bash
+    dnf update -y
+    dnf install -y nginx
+    systemctl enable nginx
+    systemctl start nginx
+
+    cat > /usr/share/nginx/html/index.html <<'HTML'
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <title>AWS Cloud Portfolio</title>
+      </head>
+      <body>
+        <h1>AWS Cloud Portfolio</h1>
+        <p>Deployed automatically with Terraform and Auto Scaling.</p>
+      </body>
+    </html>
+    HTML
+  EOF
+  )
+
+  vpc_security_group_ids = [
+    aws_security_group.app.id
+  ]
+
+  tag_specifications {
+    resource_type = "instance"
+
+    tags = {
+      Name        = "aws-cloud-portfolio-app"
+      Environment = "dev"
+    }
+  }
+}
+
+
+
+
+
