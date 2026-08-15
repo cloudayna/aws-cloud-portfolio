@@ -47,3 +47,7 @@ terraform.rc
 
 .venv/
 *.tfstate.*
+
+__pycache__/
+*.pyc
+models/*.joblib

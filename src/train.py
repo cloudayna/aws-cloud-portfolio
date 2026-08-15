@@ -5,7 +5,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import classification_report, roc_auc_score
 
 from sklearn.ensemble import RandomForestClassifier
-
+import joblib
 
 X, y = make_classification(
     n_samples=10000,
@@ -60,3 +60,6 @@ print(classification_report(y_test, rf_pred, digits=4))
 
 rf_roc_auc = roc_auc_score(y_test, rf_prob)
 print("ROC-AUC:", round(rf_roc_auc, 4))
+
+joblib.dump(rf_model, "models/fraud_model.joblib")
+print("Model saved to models/fraud_model.joblib")
