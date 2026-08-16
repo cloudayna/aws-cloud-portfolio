@@ -2,8 +2,8 @@ from fastapi import FastAPI
 from pydantic import BaseModel, Field
 
 from src.predict import predict_transaction
-
 from src.database import init_db, save_prediction, get_predictions
+
 
 app = FastAPI(
     title="Fraud Detection API",
@@ -36,6 +36,9 @@ def predict(transaction: Transaction):
 
     return result
 
-    @app.get("/predictions")
+
+@app.get("/predictions")
 def predictions():
     return get_predictions()
+
+    
