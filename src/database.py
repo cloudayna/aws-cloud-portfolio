@@ -40,6 +40,27 @@ def save_prediction(prediction, fraud_probability):
     connection.close()
 
 
+def get_predictions():
+    connection = sqlite3.connect(DB_PATH)
+    connection.row_factory = sqlite3.Row
+
+    rows = connection.execute(
+        """
+        SELECT
+            id,
+            prediction,
+            fraud_probability,
+            created_at
+        FROM predictions
+        ORDER BY id DESC
+        """
+    ).fetchall()
+
+    connection.close()
+
+    return [dict(row) for row in rows]
+
+
 if __name__ == "__main__":
     init_db()
     print("Database initialized.")
