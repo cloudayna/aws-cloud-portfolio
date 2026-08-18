@@ -274,31 +274,37 @@ data "aws_ami" "amazon_linux" {
     values = ["hvm"]
   }
 }
-
-
 resource "aws_launch_template" "app" {
   name_prefix   = "aws-cloud-portfolio-"
   image_id      = data.aws_ami.amazon_linux.id
   instance_type = "t3.micro"
+
+  iam_instance_profile {
+    name = aws_iam_instance_profile.app.name
+  }
+
   user_data = base64encode(<<-EOF
     #!/bin/bash
-    dnf update -y
-    dnf install -y nginx
-    systemctl enable nginx
-    systemctl start nginx
+    set -e
 
-    cat > /usr/share/nginx/html/index.html <<'HTML'
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <title>AWS Cloud Portfolio</title>
-      </head>
-      <body>
-        <h1>AWS Cloud Portfolio</h1>
-        <p>Deployed automatically with Terraform and Auto Scaling.</p>
-      </body>
-    </html>
-    HTML
+    dnf update -y
+    dnf install -y docker
+
+    systemctl enable docker
+    systemctl start docker
+
+    aws ecr get-login-password --region us-east-1 | \
+      docker login \
+      --username AWS \
+      --password-stdin 675713606612.dkr.ecr.us-east-1.amazonaws.com
+
+    docker pull ${aws_ecr_repository.fraud_detection.repository_url}:latest
+
+    docker run -d \
+      --name fraud-detection-api \
+      --restart unless-stopped \
+      -p 80:8000 \
+      ${aws_ecr_repository.fraud_detection.repository_url}:latest
   EOF
   )
 
@@ -368,3 +374,51 @@ resource "aws_autoscaling_policy" "cpu_target" {
     target_value = 50.0
   }
 }
+
+
+
+
+resource "aws_ecr_repository" "fraud_detection" {
+  name                 = "fraud-detection-api"
+  image_tag_mutability = "MUTABLE"
+
+  image_scanning_configuration {
+    scan_on_push = true
+  }
+
+  tags = {
+    Name        = "fraud-detection-api"
+    Environment = "dev"
+  }
+}
+
+resource "aws_iam_role" "app" {
+  name = "aws-cloud-portfolio-app-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Principal = {
+          Service = "ec2.amazonaws.com"
+        }
+        Action = "sts:AssumeRole"
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "ecr_read_only" {
+  role       = aws_iam_role.app.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
+}
+
+resource "aws_iam_instance_profile" "app" {
+  name = "aws-cloud-portfolio-app-profile"
+  role = aws_iam_role.app.name
+
+
+}
+
+
