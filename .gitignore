@@ -55,3 +55,5 @@ models/*.joblib
 data/*.db
 
 *.backup
+
+!models/fraud_model.joblib
