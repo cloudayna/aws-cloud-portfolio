@@ -1,0 +1,41 @@
+name: CD
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::675713606612:role/github-actions-fraud-detection-deploy
+          aws-region: us-east-1
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push Docker image
+        run: |
+          docker build -t fraud-detection-api .
+          docker tag fraud-detection-api:latest \
+            675713606612.dkr.ecr.us-east-1.amazonaws.com/fraud-detection-api:latest
+          docker push \
+            675713606612.dkr.ecr.us-east-1.amazonaws.com/fraud-detection-api:latest
+
+      - name: Start Auto Scaling instance refresh
+        run: |
+          aws autoscaling start-instance-refresh \
+            --auto-scaling-group-name aws-cloud-portfolio-asg \
+            --preferences '{"MinHealthyPercentage":50,"InstanceWarmup":120}'
