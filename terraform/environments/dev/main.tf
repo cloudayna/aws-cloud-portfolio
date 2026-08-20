@@ -547,7 +547,7 @@ resource "aws_iam_role" "github_actions_deploy" {
           }
 
           StringLike = {
-            "token.actions.githubusercontent.com:sub" = "repo:cloudayna/aws-cloud-portfolio:ref:refs/heads/main"
+            "token.actions.githubusercontent.com:sub" = "repo:cloudayna@317098861/aws-cloud-portfolio@1334664437:ref:refs/heads/main"
           }
         }
       }
