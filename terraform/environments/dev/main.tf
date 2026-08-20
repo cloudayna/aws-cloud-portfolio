@@ -480,3 +480,39 @@ resource "aws_iam_role_policy" "dynamodb_predictions" {
     ]
   })
 }
+
+resource "aws_cloudwatch_metric_alarm" "target_5xx" {
+  alarm_name          = "fraud-detection-target-5xx"
+  alarm_description   = "Alert when fraud detection targets return 5XX errors"
+  namespace           = "AWS/ApplicationELB"
+  metric_name         = "HTTPCode_Target_5XX_Count"
+  statistic           = "Sum"
+  period              = 60
+  evaluation_periods  = 2
+  threshold           = 1
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  treat_missing_data  = "notBreaching"
+
+  dimensions = {
+    LoadBalancer = aws_lb.app.arn_suffix
+    TargetGroup  = aws_lb_target_group.app.arn_suffix
+  }
+}
+
+resource "aws_cloudwatch_metric_alarm" "unhealthy_targets" {
+  alarm_name          = "fraud-detection-unhealthy-targets"
+  alarm_description   = "Alert when an application target becomes unhealthy"
+  namespace           = "AWS/ApplicationELB"
+  metric_name         = "UnHealthyHostCount"
+  statistic           = "Maximum"
+  period              = 60
+  evaluation_periods  = 2
+  threshold           = 1
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  treat_missing_data  = "notBreaching"
+
+  dimensions = {
+    LoadBalancer = aws_lb.app.arn_suffix
+    TargetGroup  = aws_lb_target_group.app.arn_suffix
+  }
+}
