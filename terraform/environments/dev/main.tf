@@ -303,6 +303,10 @@ resource "aws_launch_template" "app" {
     docker run -d \
       --name fraud-detection-api \
       --restart unless-stopped \
+      --log-driver=awslogs \
+      --log-opt awslogs-region=us-east-1 \
+      --log-opt awslogs-group=/aws/ec2/fraud-detection-api \
+      --log-opt awslogs-stream=fraud-detection-api-$HOSTNAME \
       -p 80:8000 \
       ${aws_ecr_repository.fraud_detection.repository_url}:latest
   EOF
@@ -381,6 +385,7 @@ resource "aws_autoscaling_policy" "cpu_target" {
 resource "aws_ecr_repository" "fraud_detection" {
   name                 = "fraud-detection-api"
   image_tag_mutability = "MUTABLE"
+  force_delete         = true
 
   image_scanning_configuration {
     scan_on_push = true
@@ -422,3 +427,56 @@ resource "aws_iam_instance_profile" "app" {
 }
 
 
+
+resource "aws_cloudwatch_log_group" "fraud_detection" {
+  name              = "/aws/ec2/fraud-detection-api"
+  retention_in_days = 7
+
+  tags = {
+    Name        = "fraud-detection-api-logs"
+    Environment = "dev"
+  }
+}
+
+resource "aws_iam_role_policy_attachment" "cloudwatch_agent" {
+  role       = aws_iam_role.app.name
+  policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
+}
+
+
+resource "aws_dynamodb_table" "predictions" {
+  name         = "fraud-detection-predictions"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "prediction_id"
+
+  attribute {
+    name = "prediction_id"
+    type = "S"
+  }
+
+  tags = {
+    Name        = "fraud-detection-predictions"
+    Environment = "dev"
+  }
+}
+
+resource "aws_iam_role_policy" "dynamodb_predictions" {
+  name = "fraud-detection-dynamodb-access"
+  role = aws_iam_role.app.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "dynamodb:PutItem",
+          "dynamodb:GetItem",
+          "dynamodb:Scan",
+          "dynamodb:Query"
+        ]
+        Resource = aws_dynamodb_table.predictions.arn
+      }
+    ]
+  })
+}

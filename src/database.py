@@ -1,66 +1,58 @@
-import sqlite3
+import uuid
+from datetime import datetime, timezone
+from decimal import Decimal
+
+import boto3
 
 
-DB_PATH = "data/predictions.db"
+TABLE_NAME = "fraud-detection-predictions"
+REGION = "us-east-1"
+
+dynamodb = boto3.resource("dynamodb", region_name=REGION)
+table = dynamodb.Table(TABLE_NAME)
 
 
 def init_db():
-    connection = sqlite3.connect(DB_PATH)
-
-    connection.execute(
-        """
-        CREATE TABLE IF NOT EXISTS predictions (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            prediction TEXT NOT NULL,
-            fraud_probability REAL NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-        """
-    )
-
-    connection.commit()
-    connection.close()
+    return None
 
 
 def save_prediction(prediction, fraud_probability):
-    connection = sqlite3.connect(DB_PATH)
+    prediction_id = str(uuid.uuid4())
+    created_at = datetime.now(timezone.utc).isoformat()
 
-    connection.execute(
-        """
-        INSERT INTO predictions (
-            prediction,
-            fraud_probability
-        )
-        VALUES (?, ?)
-        """,
-        (prediction, fraud_probability),
+    table.put_item(
+        Item={
+            "prediction_id": prediction_id,
+            "prediction": prediction,
+            "fraud_probability": Decimal(str(fraud_probability)),
+            "created_at": created_at,
+        }
     )
-
-    connection.commit()
-    connection.close()
 
 
 def get_predictions():
-    connection = sqlite3.connect(DB_PATH)
-    connection.row_factory = sqlite3.Row
+    response = table.scan()
+    items = response.get("Items", [])
 
-    rows = connection.execute(
-        """
-        SELECT
-            id,
-            prediction,
-            fraud_probability,
-            created_at
-        FROM predictions
-        ORDER BY id DESC
-        """
-    ).fetchall()
+    while "LastEvaluatedKey" in response:
+        response = table.scan(
+            ExclusiveStartKey=response["LastEvaluatedKey"]
+        )
+        items.extend(response.get("Items", []))
 
-    connection.close()
+    items.sort(
+        key=lambda item: item.get("created_at", ""),
+        reverse=True,
+    )
 
-    return [dict(row) for row in rows]
+    for item in items:
+        if "fraud_probability" in item:
+            item["fraud_probability"] = float(
+                item["fraud_probability"]
+            )
+
+    return items
 
 
 if __name__ == "__main__":
-    init_db()
-    print("Database initialized.")
+    print("DynamoDB configured.")
